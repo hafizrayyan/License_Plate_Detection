@@ -4,6 +4,7 @@ import numpy as np
 from ultralytics import YOLO
 import easyocr
 import os
+import subprocess  # Added for web video conversion
 
 # =========================
 # LOAD MODELS
@@ -24,8 +25,9 @@ print("Models loaded successfully!")
 def detect_license_plate(video_file):
 
     try:
-
-        output_path = "processed_output.mp4"
+        # We save OpenCV's raw output to a temp file first
+        temp_output_path = "temp_processed.mp4"
+        final_output_path = "processed_output.mp4"
 
         cap = cv2.VideoCapture(video_file)
 
@@ -47,8 +49,9 @@ def detect_license_plate(video_file):
         # Codec
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
+        # Write to temp path initially
         out = cv2.VideoWriter(
-            output_path,
+            temp_output_path,
             fourcc,
             fps,
             (width, height)
@@ -211,13 +214,31 @@ def detect_license_plate(video_file):
         cap.release()
         out.release()
 
+        # ---------------------------------------------------------
+        # NEW: Convert Video to H.264 for Browser Compatibility
+        # ---------------------------------------------------------
+        print("Converting video format for browser compatibility...")
+        if os.path.exists(final_output_path):
+            os.remove(final_output_path)
+
+        # Run FFmpeg transcode
+        subprocess.run([
+            'ffmpeg', '-y', '-i', temp_output_path,
+            '-vcodec', 'libx264', '-crf', '23', final_output_path
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Clean up the original OpenCV temporary video file
+        if os.path.exists(temp_output_path):
+            os.remove(temp_output_path)
+        # ---------------------------------------------------------
+
         print("Processing complete!")
 
-        # Verify output exists
-        if not os.path.exists(output_path):
+        # Verify final output exists
+        if not os.path.exists(final_output_path):
             raise ValueError("Output video was not created.")
 
-        return output_path
+        return final_output_path
 
     except Exception as e:
 
